@@ -22,7 +22,7 @@ final class OCRService {
         let observations: [DocumentObservation] = try await handler.perform(request)
 
         let text = observations
-            .compactMap { $0.document.text?.transcript }
+            .compactMap { $0.document.text.transcript }
             .joined(separator: "\n")
 
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
