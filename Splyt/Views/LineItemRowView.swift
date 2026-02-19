@@ -13,7 +13,7 @@ struct LineItemRowView: View {
                         .font(.caption)
                         .foregroundStyle(person.color)
                 } else {
-                    Text("Tap to assign")
+                    Text("Tap to edit")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }

@@ -40,7 +40,7 @@ struct ReceiptDetailView: View {
             SplitSummaryView(receipt: receipt)
         }
         .sheet(item: $selectedLineItem) { item in
-            PersonPickerView(lineItem: item)
+            LineItemEditView(item: item)
         }
     }
 
