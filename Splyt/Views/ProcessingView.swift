@@ -1,5 +1,5 @@
 import SwiftUI
-
+import SwiftData
 enum ProcessingPhase: Equatable {
     case ocr
     case parsing
