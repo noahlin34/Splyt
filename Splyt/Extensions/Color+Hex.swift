@@ -25,4 +25,12 @@ extension Color {
         "FF6B6B", "4ECDC4", "45B7D1", "96CEB4",
         "FFEAA7", "DDA0DD", "98D8C8", "F7DC6F"
     ]
+
+    static let splytGreen      = Color(hex: "2bee7c") ?? .green
+    static let splytDark       = Color(hex: "0f172a") ?? Color(.label)
+    static let splytSecondary  = Color(hex: "64748b") ?? Color(.secondaryLabel)
+    static let splytMuted      = Color(hex: "94a3b8") ?? Color(.tertiaryLabel)
+    static let splytBackground = Color(hex: "f6f8f7") ?? Color(.systemGroupedBackground)
+    static let splytBorder     = Color(hex: "f1f5f9") ?? Color(.systemGray6)
+    static let splytRed        = Color(hex: "ef4444") ?? .red
 }
