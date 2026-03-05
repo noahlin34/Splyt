@@ -5,6 +5,7 @@ import SwiftData
 final class Person {
     var name: String
     var colorHex: String
+    var isCurrentUser: Bool = false
 
     @Relationship(inverse: \LineItem.assignedPerson)
     var assignedItems: [LineItem] = []
@@ -13,8 +14,9 @@ final class Person {
         Color(hex: colorHex) ?? .blue
     }
 
-    init(name: String, colorHex: String) {
+    init(name: String, colorHex: String, isCurrentUser: Bool = false) {
         self.name = name
         self.colorHex = colorHex
+        self.isCurrentUser = isCurrentUser
     }
 }
