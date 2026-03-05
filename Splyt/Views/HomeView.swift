@@ -6,6 +6,7 @@ import SwiftData
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Receipt.createdAt, order: .reverse) private var receipts: [Receipt]
+    @Query(filter: #Predicate<Person> { $0.isCurrentUser }) private var currentUsers: [Person]
 
     @State private var showingScanView = false
     @State private var showingPersonManager = false
@@ -14,21 +15,23 @@ struct HomeView: View {
     @State private var pendingImage: UIImage?
     @State private var navigateToReceipt = false
 
+    private var currentUser: Person? { currentUsers.first }
     private var recentReceipts: [Receipt] { Array(receipts.prefix(3)) }
 
     private var amountOwedToYou: Double {
         receipts.reduce(0) { sum, receipt in
-            sum + PersonSplit.calculate(for: receipt).reduce(0) { $0 + $1.total }
+            PersonSplit.calculate(for: receipt)
+                .filter { $0.person.persistentModelID != currentUser?.persistentModelID }
+                .reduce(sum) { $0 + $1.total }
         }
     }
 
     private var amountYouOwe: Double {
-        receipts.reduce(0) { sum, receipt in
-            let unassigned = receipt.lineItems.filter { $0.assignedPerson == nil }
-            let unassignedSubtotal = unassigned.reduce(0) { $0 + $1.price }
-            guard receipt.subtotal > 0 else { return sum + unassignedSubtotal }
-            let ratio = unassignedSubtotal / receipt.subtotal
-            return sum + unassignedSubtotal + receipt.taxAmount * ratio + receipt.tipAmount * ratio
+        guard let me = currentUser else { return 0 }
+        return receipts.reduce(0) { sum, receipt in
+            let mySplit = PersonSplit.calculate(for: receipt)
+                .first { $0.person.persistentModelID == me.persistentModelID }
+            return sum + (mySplit?.total ?? 0)
         }
     }
 
@@ -155,7 +158,7 @@ struct HomeView: View {
                 VStack(spacing: 16) {
                     ForEach(recentReceipts) { receipt in
                         NavigationLink(value: receipt) {
-                            ActivityRow(receipt: receipt)
+                            ActivityRow(receipt: receipt, currentUser: currentUser)
                         }
                         .buttonStyle(.plain)
                     }
@@ -260,27 +263,22 @@ private struct QuickActionButton: View {
 
 private struct ActivityRow: View {
     let receipt: Receipt
+    let currentUser: Person?
 
     private var splits: [PersonSplit] { PersonSplit.calculate(for: receipt) }
-    private var assignedTotal: Double { splits.reduce(0) { $0 + $1.total } }
-    private var hasAssigned: Bool { !splits.isEmpty }
+
+    private var othersTotal: Double {
+        splits
+            .filter { $0.person.persistentModelID != currentUser?.persistentModelID }
+            .reduce(0) { $0 + $1.total }
+    }
+
+    private var myTotal: Double {
+        guard let me = currentUser else { return 0 }
+        return splits.first { $0.person.persistentModelID == me.persistentModelID }?.total ?? 0
+    }
+
     private var hasUnassigned: Bool { receipt.lineItems.contains { $0.assignedPerson == nil } }
-
-    private var amountColor: Color {
-        if hasAssigned { return .splytGreen }
-        if hasUnassigned { return .splytRed }
-        return .splytDark
-    }
-
-    private var statusLabel: String {
-        if hasAssigned && !hasUnassigned { return "OWED TO YOU" }
-        if hasUnassigned { return "PENDING" }
-        return "SETTLED"
-    }
-
-    private var displayAmount: Double {
-        hasAssigned ? assignedTotal : receipt.total
-    }
 
     private var peopleCount: Int {
         Set(receipt.lineItems.compactMap { $0.assignedPerson?.name }).count
@@ -310,16 +308,7 @@ private struct ActivityRow: View {
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(displayAmount, format: .currency(code: "USD"))
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(amountColor)
-                Text(statusLabel)
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color.splytMuted)
-                    .tracking(0.5)
-                    .textCase(.uppercase)
-            }
+            amountColumn
         }
         .padding(17)
         .background(.white)
@@ -328,5 +317,69 @@ private struct ActivityRow: View {
             RoundedRectangle(cornerRadius: 24)
                 .stroke(Color.splytBorder, lineWidth: 1)
         )
+    }
+
+    @ViewBuilder
+    private var amountColumn: some View {
+        if currentUser != nil {
+            if othersTotal > 0 && myTotal > 0 {
+                // Mixed: show what others owe you, plus a smaller "you owe" line
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(othersTotal, format: .currency(code: "USD"))
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(Color.splytGreen)
+                    Text("OWED TO YOU")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.splytMuted)
+                        .tracking(0.5)
+                    Text("-\(myTotal.formatted(.currency(code: "USD")))")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.splytRed)
+                    Text("YOU OWE")
+                        .font(.system(size: 9))
+                        .foregroundStyle(Color.splytMuted)
+                        .tracking(0.5)
+                }
+            } else if othersTotal > 0 {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(othersTotal, format: .currency(code: "USD"))
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(Color.splytGreen)
+                    Text(hasUnassigned ? "PENDING" : "OWED TO YOU")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.splytMuted)
+                        .tracking(0.5)
+                }
+            } else if myTotal > 0 {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(myTotal, format: .currency(code: "USD"))
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(Color.splytRed)
+                    Text("YOU OWE")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.splytMuted)
+                        .tracking(0.5)
+                }
+            } else {
+                fallbackAmount
+            }
+        } else {
+            fallbackAmount
+        }
+    }
+
+    // Used when no current user is set or no splits exist
+    private var fallbackAmount: some View {
+        let total = splits.reduce(0) { $0 + $1.total }
+        let hasAny = !splits.isEmpty
+        return VStack(alignment: .trailing, spacing: 2) {
+            Text(hasAny ? total : receipt.total, format: .currency(code: "USD"))
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(hasAny ? Color.splytGreen : Color.splytDark)
+            Text(hasAny ? (hasUnassigned ? "PENDING" : "OWED TO YOU") : "UNSPLIT")
+                .font(.system(size: 10))
+                .foregroundStyle(Color.splytMuted)
+                .tracking(0.5)
+        }
     }
 }
