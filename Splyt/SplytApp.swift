@@ -5,7 +5,13 @@ import SwiftData
 struct SplytApp: App {
     var body: some Scene {
         WindowGroup {
-            ReceiptListView()
+            TabView {
+                HomeView()
+                    .tabItem { Label("Home", systemImage: "house.fill") }
+                ReceiptListView()
+                    .tabItem { Label("History", systemImage: "clock") }
+            }
+            .tint(Color.splytGreen)
         }
         .modelContainer(for: [Receipt.self, LineItem.self, Person.self])
     }
