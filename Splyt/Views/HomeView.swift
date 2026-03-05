@@ -81,7 +81,7 @@ struct HomeView: View {
                 changeColor: .splytGreen
             )
             BalanceCard(
-                label: "You owe",
+                label: "Your share",
                 amount: amountYouOwe,
                 iconName: "arrow.up",
                 iconColor: .splytRed,
