@@ -23,11 +23,26 @@ struct PersonManagerView: View {
                 if !people.isEmpty {
                     Section("People") {
                         ForEach(people) { person in
-                            HStack(spacing: 12) {
-                                Circle()
-                                    .fill(person.color)
-                                    .frame(width: 28, height: 28)
-                                Text(person.name)
+                            Button {
+                                setCurrentUser(person)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Circle()
+                                        .fill(person.color)
+                                        .frame(width: 28, height: 28)
+                                    Text(person.name)
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    if person.isCurrentUser {
+                                        Text("ME")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundStyle(Color.splytGreen)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 3)
+                                            .background(Color.splytGreen.opacity(0.12))
+                                            .clipShape(Capsule())
+                                    }
+                                }
                             }
                         }
                         .onDelete { indexSet in
@@ -57,5 +72,11 @@ struct PersonManagerView: View {
         let colorHex = Color.personPresets[people.count % Color.personPresets.count]
         modelContext.insert(Person(name: name, colorHex: colorHex))
         newName = ""
+    }
+
+    private func setCurrentUser(_ person: Person) {
+        let wasMe = person.isCurrentUser
+        people.forEach { $0.isCurrentUser = false }
+        person.isCurrentUser = !wasMe
     }
 }
